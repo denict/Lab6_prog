@@ -1,0 +1,8 @@
+update_by_id 1
+Ivan
+42
+43
+30000
+trust
+belorusskaya
+123456

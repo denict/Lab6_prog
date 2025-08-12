@@ -1,0 +1,305 @@
+//package managers;
+//
+//
+//import network.Request;
+//import network.Response;
+//import network.Server;
+//import utility.InputHandler;
+//import utility.OutputHandler;
+//
+//import java.io.IOException;
+//import java.nio.channels.SocketChannel;
+//import java.util.logging.Logger;
+//
+
+//import java.io.IOException;
+//с
+
+//**
+// * Обрабатывает подключение клиента. Обрабатывает запрос клиента. Отправляет ответ на запрос клиенту.
+// */
+//public class ServerManager {
+//    private final InputHandler consoleInput;
+//    private final OutputHandler consoleOutput;
+//    private final Server server;
+//    private final CommandManager commandManager;
+//    private final Logger serverLogger = Logger.getLogger("ServerLogger");
+//
+//    public ServerManager(InputHandler consoleInput, OutputHandler outputHandler, Server server, CommandManager commandManager, CollectionManager collectionManager) {
+//        this.consoleInput = consoleInput;
+//        this.consoleOutput = outputHandler;
+//        this.server = server;
+//        this.commandManager = commandManager;
+//    }
+//
+//    public void start() {
+//            server.start();
+//    }
+//
+//    public void writeResponse(SocketChannel socketChannel, Response response) {
+//            server.writeObject(socketChannel, response);
+//    }
+//
+//    public void handlerSocketChannel(SocketChannel socketChannel)  {
+//        Request request;
+//        try {
+//            request = (Request) server.getObject(socketChannel); //получаем запрос от клиента
+//
+//            //на основе запроса формируем ответ
+//            Response response = new RequestHandler(commandManager).requestHandler(request);
+//
+//
+//        } catch (IOException | ClassNotFoundException e) {
+//            console.write(e.toString());
+//            console.write("Принять данные не получилось");
+//            socketChannel.close();
+//        }
+//        catch (ClassCastException e) {
+//            console.write(e.toString());
+//            console.write("Передан неправильный тип данных");
+//        }
+//        finally {
+//            socketChannel.close();
+//        }
+//    }
+//
+//    public void run() {
+//        SocketChannel socketChannel;
+//        while (true) {
+//            try {
+//                socketChannel = server.getSocketChannel();
+//                if (socketChannel == null) continue;
+//                handlerSocketChannel(socketChannel);
+//            } catch (IOException e) {
+//                console.write(e.toString());
+//            }
+//        }
+//    }
+// }
+
+//    if (filePath == null || filePath.split(";").length == 0) {
+//        consoleOutput.println("Введите имя загружаемого файла в переменную среды. Пример: MY_FILE_PATH=\"C:\\Users\\user\\Desktop\\input.txt\"");
+//        return;
+//    } else if (filePath.split(";").length > 1) {
+//        consoleOutput.printError("В переменной среды должен храниться 1 аргумент.");
+//        return;
+//    }
+
+
+
+
+//public class ServerManager {
+//    private String filePath = System.getenv("MY_FILE_PATH");
+//    ConsoleInput consoleInput = new ConsoleInput();
+//    public ServerManager(String filePath) {
+//        this.filePath = filePath;
+//
+//    }
+//
+//
+//    ConsoleOutput consoleOutput = new ConsoleOutput();
+//
+//    public void start() {
+//        final Logger logger = Logger.getLogger("logger");
+//        DumpManager dumpManager = new DumpManager(new File(filePath), consoleOutput);
+//        if (!dumpManager.validate()) return;
+//        CollectionManager collectionManager = new CollectionManager(dumpManager);
+//        CommandManager commandManager = new CommandManager();
+//        Server server = new Server("localhost", 5252, collectionManager);
+//        server.run();
+//    }
+//}
+
+package managers;
+
+import command.Command;
+import network.Request;
+import network.Response;
+import network.Server;
+import utility.ConsoleInput;
+import utility.ConsoleOutput;
+import utility.OutputHandler;
+
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.nio.channels.*;
+import java.util.Arrays;
+import java.util.Iterator;
+import java.util.NoSuchElementException;
+import java.util.Set;
+import java.util.logging.Logger;
+
+public class ServerRunnerManager implements Runnable{
+    private final Server server;
+    private final CommandManager commandManager;
+    private final CollectionManager collectionManager;
+    private final ConsoleOutput consoleOutput;
+    private final DumpManager dumpManager;
+    private static final Logger logger = Logger.getLogger(ServerRunnerManager.class.getName());
+
+
+    public ServerRunnerManager(Server server, CommandManager commandManager, DumpManager dumpManager, CollectionManager collectionManager, ConsoleOutput consoleOutput) {
+        this.server = server;
+        this.commandManager = commandManager;
+        this.dumpManager = dumpManager;
+        this.collectionManager = collectionManager;
+        this.consoleOutput = consoleOutput;
+        initShutdownHook();
+    }
+
+    private void initShutdownHook() {
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            try {
+                // Сохранение коллекции
+                collectionManager.saveCollection();
+                logger.info("Коллекция сохранена при завершении работы");
+
+                // Дополнительные действия при завершении
+                logger.info("Сервер корректно завершил работу");
+            } catch (Exception e) {
+                logger.severe("Ошибка при завершении работы: " + e.getMessage());
+            }
+        }));
+    }
+
+    @Override
+    public void run() {
+        try {
+            ServerSocketChannel serverSocketChannel = server.getServerChannel();
+            Selector selector = Selector.open();
+            serverSocketChannel.register(selector, SelectionKey.OP_ACCEPT);
+
+            logger.info("Сервер запущен на порту " + server.getPort());
+
+            while (true) {
+                selector.select();
+                Set<SelectionKey> selectedKeys = selector.selectedKeys();
+                Iterator<SelectionKey> iter = selectedKeys.iterator();
+
+                while (iter.hasNext()) {
+                    SelectionKey key = iter.next();
+                    iter.remove();
+
+                    if (key.isAcceptable()) {
+                        handleAccept(key, selector);
+                    }
+                    if (key.isReadable()) {
+                        handleRead(key);
+                    }
+                    if (key.isWritable()) {
+                        handleWrite(key);
+                    }
+                }
+            }
+        } catch (IOException e) {
+            logger.severe("Ошибка в основном цикле сервера: " + e.getMessage());
+        }
+    }
+
+    private void handleAccept(SelectionKey key, Selector selector) {
+        try {
+            ServerSocketChannel serverChannel = (ServerSocketChannel) key.channel();
+            SocketChannel clientChannel = serverChannel.accept();
+            clientChannel.configureBlocking(false);
+            clientChannel.register(selector, SelectionKey.OP_READ);
+            logger.info("Принято новое подключение: " + clientChannel.getRemoteAddress());
+        } catch (IOException e) {
+            logger.warning("Ошибка при принятии подключения: " + e.getMessage());
+            consoleOutput.printError("Ошибка при принятии подключения: " + e.getMessage());
+        }
+    }
+
+    private void handleRead(SelectionKey key) {
+        SocketChannel clientChannel = (SocketChannel) key.channel();
+        Request request = readRequest(clientChannel);
+        if (request != null) {
+            logger.info("Обработка запроса: " + request.getStringCommand());
+            Response response = processRequest(request);
+
+            key.interestOps(SelectionKey.OP_WRITE);
+            key.attach(response);
+        }
+    }
+
+
+    private void handleWrite(SelectionKey key) {
+        SocketChannel clientChannel = (SocketChannel) key.channel();
+        Response response = (Response) key.attachment();
+
+        sendResponse(clientChannel, response);
+
+        // Возвращаемся к режиму чтения
+        key.interestOps(SelectionKey.OP_READ);
+        key.attach(null);
+
+    }
+
+
+    private Request readRequest(SocketChannel socketChannel) {
+        try (ObjectInputStream ois = new ObjectInputStream(Channels.newInputStream(socketChannel))) {
+            return (Request) ois.readObject();
+        } catch (ClassNotFoundException e) {
+            logger.warning("Неверный тип класса в запросе");
+            consoleOutput.printError("Неверный тип класса в запросе");
+            return null;
+        } catch (IOException e) {
+            logger.warning("Произошла ошибка при чтении запроса");
+            consoleOutput.printError("Произошла ошибка при чтении запроса");
+            return null;
+        }
+    }
+
+    private void sendResponse(SocketChannel channel, Response response) {
+        try (ObjectOutputStream oos = new ObjectOutputStream(Channels.newOutputStream(channel))) {
+            oos.writeObject(response);
+            oos.flush();
+        } catch (IOException e) {
+            logger.warning("Произошла ошибка при отправке ответа");
+            consoleOutput.printError("Произошла ошибка при отправке ответа");
+        }
+    }
+
+
+    private Response processRequest(Request request) {
+        // 1. Проверка на пустую команду
+        String[] requestParts = request.getStringCommand().trim().split(" ");
+        String commandName = requestParts[0];
+        if (commandName.isBlank()) {
+            return new Response(false, "Вы ничего не ввели. Воспользуйтесь командой \"help\" для просморта доступных команд");
+        }
+        String[] commandArgs = Arrays.copyOfRange(requestParts, 1, requestParts.length);
+        if (!commandManager.getCommands().containsKey(commandName)) {
+            return new Response(false, "Команда \"" + commandName + "\" не найдена. Воспользуйтесь командой \"help\" для просморта доступных команд");
+        }
+
+            Command command = commandManager.getCommands().get(commandName);
+            // 2. Проверка количества аргументов
+            if (command.getArgsCount() != commandArgs.length) {
+                return new Response(false, "Команда " + commandName + " принимает " + command.getArgsCount() + " аргумент(а)." + " Правильное использование: " + commandName + " " + command.getUsageArg());
+            }
+
+        try {
+            // 3. Выполнение команды
+            Response response = command.execute(request); // GOTO
+            commandManager.addToHistory(command);
+            CollectionManager.getSortedByNameCollection();
+            return response;
+            } catch (NoSuchElementException e) {
+                consoleOutput.println("^D");
+                return new Response(true, "^D");
+            } catch (Exception e) {
+                consoleOutput.printError("Произошла ошибка во время выполнения команды \"" + commandName + "\": " + e.getMessage());
+                return new Response(false, "Произошла ошибка во время выполнения команды \"" + commandName + "\": " + e.getMessage());
+        }
+    }
+
+    private void closeChannel(SocketChannel channel) {
+        try {
+            channel.close();
+            logger.info("Соединение закрыто");
+        } catch (IOException e) {
+            logger.warning("Ошибка при закрытии соединения");
+        }
+    }
+}

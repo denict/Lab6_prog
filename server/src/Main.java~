@@ -1,0 +1,66 @@
+
+import command.commands.*;
+import managers.*;
+import network.Request;
+import network.Server;
+import network.ServerRunnerManager;
+import utility.ConsoleInput;
+import utility.ConsoleOutput;
+
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.RandomAccessFile;
+import java.net.DatagramPacket;
+import java.net.DatagramSocket;
+import java.net.InetAddress;
+import java.net.SocketException;
+import java.nio.Buffer;
+import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.Arrays;
+
+public class Main {
+    public static void main(String[] args)  {
+        String filePath = System.getenv("MY_FILE_PATH");
+        ConsoleInput consoleInput = new ConsoleInput();
+        ConsoleOutput consoleOutput = new ConsoleOutput();
+        Server server = new Server("localhost", 55281, consoleOutput);
+        if (filePath == null || filePath.split(";").length == 0) {
+            consoleOutput.println("Введите имя загружаемого файла в переменную среды. Пример: MY_FILE_PATH=\"C:\\Users\\user\\Desktop\\input.txt\"");
+            return;
+        } else if (filePath.split(";").length > 1) {
+            consoleOutput.printError("В переменной среды должен храниться 1 аргумент.");
+            return;
+        }
+        DumpManager dumpManager = new DumpManager(new File(filePath), consoleOutput);
+        if (!dumpManager.validate()) return;
+        CollectionManager collectionManager = new CollectionManager(dumpManager);
+        dumpManager.readCollection(collectionManager);
+        RunnerScriptManager runnerScriptManager = new RunnerScriptManager();
+        CommandManager commandManager = new CommandManager() {{
+            register(new Help(this, consoleOutput));
+            register(new Info(collectionManager, consoleOutput));
+            register(new Show(collectionManager, consoleOutput));
+            register(new Add(collectionManager, consoleInput, consoleOutput));
+            register(new UpdateByID(collectionManager, consoleInput, consoleOutput));
+            register(new RemoveByID(collectionManager, consoleOutput));
+            register(new Clear(collectionManager, consoleOutput));
+            register(new ExecuteScript(this, consoleInput, consoleOutput, runnerScriptManager));
+            register(new RemoveFirst(collectionManager, consoleOutput));
+            register(new AddIfMin(collectionManager, consoleOutput));
+            register(new History(this, consoleOutput));
+            register(new CountByOfficialAddress(collectionManager, consoleOutput));
+            register(new FilterByAnnualTurnover(collectionManager, consoleOutput));
+            register(new PrintUniqueAnnualTurnover(collectionManager, consoleOutput));
+        }};
+
+//        server.start();
+        System.out.println(commandManager.getCommands().get("execute_script").execute(new Request(commandManager.getCommands().get("execute_script"), "1.txt")).getMessage());
+//        ServerRunnerManager serverRunnerManager = new ServerRunnerManager(server, commandManager, dumpManager, collectionManager, consoleInput, consoleOutput);
+//        serverRunnerManager.run();
+
+    }
+}

@@ -1,0 +1,19 @@
+package managers;
+
+import network.Request;
+import network.Response;
+
+
+/**
+ * Обработчик запросов, которые приходят на сервер.
+ */
+public class RequestHandler {
+
+    private final CommandManager commandManager;
+    private final DumpManager dumpManager;
+
+    public RequestHandler(CommandManager commandManager, DumpManager dumpManager) {
+        this.commandManager = commandManager;
+        this.dumpManager = dumpManager;
+    }
+}

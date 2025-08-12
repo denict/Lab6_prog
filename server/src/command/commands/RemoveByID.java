@@ -1,0 +1,46 @@
+package command.commands;
+
+import command.Command;
+import managers.CollectionManager;
+import network.Request;
+import network.Response;
+import utility.ConsoleOutput;
+
+import java.io.Serial;
+import java.io.Serializable;
+
+/**
+ * Команда "remove_by_id".
+ * Описание команды: удалить элемент из коллекции по его id
+ */
+public class RemoveByID extends Command implements Serializable {
+    @Serial
+    private static final long serialVersionUID = 63L;
+    private CollectionManager collectionManager;
+    private ConsoleOutput consoleOutput;
+
+    public RemoveByID(CollectionManager collectionManager, ConsoleOutput consoleOutput) {
+        super("remove_by_id", "удалить элемент из коллекции по его id", 1, "\"id\"");
+        this.collectionManager = collectionManager;
+        this.consoleOutput = consoleOutput;
+    }
+
+    /**
+     * Выполнение команды.
+     *
+     * @param args аргументы
+     */
+    @Override
+    public Response execute(Request request) {
+        try {
+            int id = Integer.parseInt(((String[])request.getArgs())[0]);
+            if (collectionManager.remove(id)) {
+                return new Response(true, "Элемент с id=" + id + " был успешно удален!");
+            } else{
+                return new Response(false, "Элемента с id=" + id + " не был удален! Его просто нет в коллекции.");
+            }
+        } catch (NumberFormatException e) {
+            return new Response(false, "Введите целочисленное число");
+        }
+    }
+}

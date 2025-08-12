@@ -1,0 +1,54 @@
+package command.commands;
+
+import command.Command;
+import entity.Organization;
+import entity.builders.OrganizationBuilder;
+import managers.CollectionManager;
+import network.Request;
+import network.Response;
+import utility.ConsoleInput;
+import utility.ConsoleOutput;
+
+import java.io.Serial;
+import java.io.Serializable;
+import java.util.Date;
+
+/**
+ * Команда "update_by_id".
+ * Описание команды: обновить значение элемента коллекции, id которого равен заданному
+ */
+public class UpdateByID extends Command implements Serializable {
+    @Serial
+    private static final long serialVersionUID = 65L;
+    private CollectionManager collectionManager;
+    private ConsoleInput consoleInput;
+    private ConsoleOutput consoleOutput;
+
+
+    public UpdateByID(CollectionManager collectionManager, ConsoleInput consoleInput, ConsoleOutput consoleOutput) {
+        super("update_by_id", "обновить значение элемента коллекции, id которого равен заданному", 1, "\"id\"");
+        this.collectionManager = collectionManager;
+        this.consoleInput = consoleInput;
+        this.consoleOutput = consoleOutput;
+    }
+
+    /**
+     * Выполнение команды.
+     *
+     * @param args аргументы
+     */
+    @Override
+    public Response execute(Request request) {
+                int id = Integer.parseInt(((String[])(request.getArgs()))[0]);
+                Organization organization = request.getOrganization();
+                if (collectionManager.remove(id)) {
+                    organization.setId(id);
+                    organization.setCreationDate(new Date());
+                    if (organization == null) {
+                    }
+                    collectionManager.add(organization);
+                    return new Response(true, "Элемент с id=" + id + " был успешно изменен!");
+                }
+                return new Response(false, "Элемента с id=" + id + " не был удален! Его просто нет в коллекции.");
+    }
+}

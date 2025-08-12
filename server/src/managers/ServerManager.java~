@@ -1,0 +1,120 @@
+//package managers;
+//
+//
+//import network.Request;
+//import network.Response;
+//import network.Server;
+//import utility.InputHandler;
+//import utility.OutputHandler;
+//
+//import java.io.IOException;
+//import java.nio.channels.SocketChannel;
+//import java.util.logging.Logger;
+//
+
+//import java.io.IOException;
+//с
+
+//**
+// * Обрабатывает подключение клиента. Обрабатывает запрос клиента. Отправляет ответ на запрос клиенту.
+// */
+//public class ServerManager {
+//    private final InputHandler consoleInput;
+//    private final OutputHandler consoleOutput;
+//    private final Server server;
+//    private final CommandManager commandManager;
+//    private final Logger serverLogger = Logger.getLogger("ServerLogger");
+//
+//    public ServerManager(InputHandler consoleInput, OutputHandler outputHandler, Server server, CommandManager commandManager, CollectionManager collectionManager) {
+//        this.consoleInput = consoleInput;
+//        this.consoleOutput = outputHandler;
+//        this.server = server;
+//        this.commandManager = commandManager;
+//    }
+//
+//    public void start() {
+//            server.start();
+//    }
+//
+//    public void writeResponse(SocketChannel socketChannel, Response response) {
+//            server.writeObject(socketChannel, response);
+//    }
+//
+//    public void handlerSocketChannel(SocketChannel socketChannel)  {
+//        Request request;
+//        try {
+//            request = (Request) server.getObject(socketChannel); //получаем запрос от клиента
+//
+//            //на основе запроса формируем ответ
+//            Response response = new RequestHandler(commandManager).requestHandler(request);
+//
+//
+//        } catch (IOException | ClassNotFoundException e) {
+//            console.write(e.toString());
+//            console.write("Принять данные не получилось");
+//            socketChannel.close();
+//        }
+//        catch (ClassCastException e) {
+//            console.write(e.toString());
+//            console.write("Передан неправильный тип данных");
+//        }
+//        finally {
+//            socketChannel.close();
+//        }
+//    }
+//
+//    public void run() {
+//        SocketChannel socketChannel;
+//        while (true) {
+//            try {
+//                socketChannel = server.getSocketChannel();
+//                if (socketChannel == null) continue;
+//                handlerSocketChannel(socketChannel);
+//            } catch (IOException e) {
+//                console.write(e.toString());
+//            }
+//        }
+//    }
+// }
+
+//    if (filePath == null || filePath.split(";").length == 0) {
+//        consoleOutput.println("Введите имя загружаемого файла в переменную среды. Пример: MY_FILE_PATH=\"C:\\Users\\user\\Desktop\\input.txt\"");
+//        return;
+//    } else if (filePath.split(";").length > 1) {
+//        consoleOutput.printError("В переменной среды должен храниться 1 аргумент.");
+//        return;
+//    }
+
+package managers;
+
+import network.Server;
+import utility.ConsoleInput;
+import utility.ConsoleOutput;
+import utility.OutputHandler;
+
+import java.io.File;
+import java.io.IOException;
+import java.util.logging.Logger;
+
+
+public class ServerManager {
+    private String filePath = System.getenv("MY_FILE_PATH");
+    ConsoleInput consoleInput = new ConsoleInput();
+    public ServerManager(String filePath) {
+        this.filePath = filePath;
+
+    }
+
+
+    ConsoleOutput consoleOutput = new ConsoleOutput();
+
+    public void start() {
+        final Logger logger = Logger.getLogger("logger");
+        DumpManager dumpManager = new DumpManager(new File(filePath), consoleOutput);
+        if (!dumpManager.validate()) return;
+        CollectionManager collectionManager = new CollectionManager(dumpManager);
+        CommandManager commandManager = new CommandManager();
+        Server server = new Server("localhost", 5252, collectionManager);
+        server.run();
+    }
+}

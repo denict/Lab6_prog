@@ -1,0 +1,58 @@
+package network;
+import command.Command;
+import entity.Organization;
+
+import java.io.Serial;
+import java.io.Serializable;
+public class Request <T> implements Serializable {
+    @Serial
+    private static final long serialVersionUID = 5L;
+    public Organization organization;
+    Command command;
+    T args;
+    public void castg(){
+    Object g=1;
+    String.class.cast(g);
+    }
+
+
+    public Request(Command command) {
+        this.command = command;
+    }
+
+    public Request (T string) {
+        this.args = string;
+    }
+
+    public Request(Command command, T args) {
+        this.command = command;
+        this.args = args;
+    }
+
+    public Request(Command command, Organization organization) {
+        this.command = command;
+        this.organization = organization;
+    }
+
+    public Request(Organization organization) {
+        this.organization = organization;
+    }
+
+    public Request(Command command, Organization organization, T args) {
+        this.command = command;
+        this.organization = organization;
+        this.args = args;
+    }
+
+    public Command getCommand() {
+        return command;
+    }
+
+    public Organization getOrganization() {
+        return organization;
+    }
+
+    public Object getArgs() {
+        return args;
+    }
+}

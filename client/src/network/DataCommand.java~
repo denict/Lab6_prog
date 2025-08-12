@@ -1,0 +1,15 @@
+package network;
+
+import command.Command;
+
+import java.io.Serializable;
+
+public class DataCommand implements Serializable {
+    private static final long serialVersionUID = 6L;
+    private final Command command;
+
+    public DataCommand(Command command) {
+        
+    }
+
+}
